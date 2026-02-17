@@ -4,29 +4,20 @@ export const users = [
     name: "Ananya",
     age: 20,
     college: "Engineering",
-    hates: [
-      "Group projects where only you work",
-      "Slow internet during an important upload",
-    ],
+    hates: [2, 3], // Slow internet, Group projects
   },
   {
     id: 2,
     name: "Rahul",
     age: 22,
     college: "BSc",
-    hates: [
-      "When relatives ask about your marks in front of everyone",
-      "People who say 'let's plan' but never show up",
-    ],
+    hates: [1, 4], // Marks, Let's plan people
   },
   {
     id: 3,
     name: "Sneha",
     age: 21,
     college: "MBA",
-    hates: [
-      "Getting added to random college WhatsApp groups",
-      "Group projects where only you work",
-    ],
+    hates: [3, 5], // Group projects, WhatsApp groups
   },
 ];
