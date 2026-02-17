@@ -83,7 +83,8 @@ Find your SameYaar 👀`;
         Share Results
       </button>
 
-      <a href="/prompts">
+      <a href="/matches">
+
         <button className="border px-6 py-3 rounded-lg">
           Find your SameYaar
         </button>
