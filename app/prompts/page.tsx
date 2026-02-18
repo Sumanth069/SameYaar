@@ -15,10 +15,11 @@ export default function PromptsPage() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [answers, setAnswers] = useState<Answer[]>([]);
 
-  const handleAnswer = (response: "hate" | "meh" | "love") => {
+  const handleAnswer = async (
+    response: "hate" | "meh" | "love"
+  ) => {
     const currentPrompt = prompts[currentIndex];
 
-    // ✅ Always build updated answers first
     const updatedAnswers: Answer[] = [
       ...answers,
       {
@@ -29,17 +30,34 @@ export default function PromptsPage() {
 
     setAnswers(updatedAnswers);
 
-    // ✅ If more prompts exist, move forward
+    // If more prompts exist → move forward
     if (currentIndex < prompts.length - 1) {
       setCurrentIndex(currentIndex + 1);
-    } 
-    // ✅ If last prompt, save FINAL answers & move to results
-    else {
-      localStorage.setItem(
-        "sameyaar_answers",
-        JSON.stringify(updatedAnswers)
-      );
-      router.push("/result");
+    } else {
+      try {
+        // ✅ Save locally (fallback)
+        localStorage.setItem(
+          "sameyaar_answers",
+          JSON.stringify(updatedAnswers)
+        );
+
+        // ✅ Send to backend
+        await fetch("/api/answers", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ answers: updatedAnswers }),
+        });
+
+        // Move to result page
+        router.push("/result");
+      } catch (error) {
+        console.error("Failed to save answers:", error);
+
+        // Still move to result page
+        router.push("/result");
+      }
     }
   };
 
@@ -55,7 +73,7 @@ export default function PromptsPage() {
         {prompts[currentIndex].text}
       </h1>
 
-      {/* Actions */}
+      {/* Buttons */}
       <div className="flex gap-4">
         <button
           onClick={() => handleAnswer("hate")}
