@@ -1,114 +1,100 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { users } from "../../data/users";
-import { prompts } from "../../data/prompts";
 
 type Match = {
-  id: number;
-  name: string;
-  age: number;
-  college: string;
+  userA: number;
+  userB: number;
   score: number;
-  reasons: string[];
 };
 
 export default function MatchesPage() {
   const [matches, setMatches] = useState<Match[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const saved = localStorage.getItem("sameyaar_answers");
-    if (!saved) return;
-
-    const parsed = JSON.parse(saved);
-
-    // ✅ Normalize prompt IDs to numbers
-    const myHates: number[] = parsed
-      .filter((a: any) => a.response === "hate")
-      .map((a: any) => Number(a.promptId));
-
-    const computedMatches: Match[] = users
-      .map(user => {
-        // ✅ Compare numbers with numbers
-        const commonIds = user.hates.filter(id =>
-          myHates.includes(Number(id))
-        );
-
-        const reasons = commonIds
-          .map(id => {
-            const prompt = prompts.find(p => p.id === id);
-            return prompt?.text;
-          })
-          .filter(Boolean) as string[];
-
-        return {
-          id: user.id,
-          name: user.name,
-          age: user.age,
-          college: user.college,
-          score: commonIds.length,
-          reasons,
-        };
+    fetch("/api/matches")
+      .then((res) => res.json())
+      .then((data) => {
+        setMatches(data);
+        setLoading(false);
       })
-      // ✅ Remove users with no overlap
-      .filter(match => match.score > 0)
-      // ✅ Best matches first
-      .sort((a, b) => b.score - a.score);
-
-    setMatches(computedMatches);
+      .catch(() => setLoading(false));
   }, []);
 
-  return (
-    <main className="min-h-screen px-4 py-10">
-      <h1 className="text-3xl font-bold text-center mb-8">
-        Your SameYaar Matches 👀
-      </h1>
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center text-gray-500 text-lg">
+        Finding your SameYaar…
+      </div>
+    );
+  }
 
-      {matches.length === 0 ? (
-        <p className="text-center text-gray-500">
-          No strong matches yet 😕
+  return (
+    <main className="min-h-screen bg-[#fafafa] px-4 py-10">
+      {/* Header */}
+      <div className="max-w-xl mx-auto text-center mb-10">
+        <h1 className="text-3xl font-semibold tracking-tight">
+          Your SameYaars 💖
+        </h1>
+        <p className="text-gray-500 mt-2">
+          People who hate the same things as you.
         </p>
-      ) : (
-        <div className="grid gap-6 max-w-xl mx-auto">
-          {matches.map(match => (
-            <MatchCard key={match.id} match={match} />
-          ))}
-        </div>
-      )}
-    </main>
-  );
-}
-
-function MatchCard({ match }: { match: Match }) {
-  return (
-    <div className="relative border rounded-lg p-4 bg-white shadow">
-      {/* 🔒 Blur overlay */}
-      <div className="absolute inset-0 bg-white/70 backdrop-blur-sm flex items-center justify-center rounded-lg">
-        <button
-          onClick={() => alert("Login to connect 👀")}
-          className="bg-black text-white px-4 py-2 rounded-lg"
-        >
-          Login to Reveal
-        </button>
       </div>
 
-      <h2 className="text-xl font-semibold">
-        {match.name}, {match.age}
-      </h2>
+      {/* Empty state */}
+      {matches.length === 0 && (
+        <div className="text-center text-gray-500 mt-20">
+          No matches yet. Try answering again.
+        </div>
+      )}
 
-      <p className="text-gray-500 mb-2">{match.college}</p>
+      {/* Cards */}
+      <div className="max-w-xl mx-auto space-y-6">
+        {matches.map((match, index) => (
+          <div
+            key={index}
+            className="bg-white rounded-2xl shadow-sm hover:shadow-md transition border border-gray-100"
+          >
+            <div className="p-6">
+              {/* Top row */}
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  {/* Avatar */}
+                  <div className="w-12 h-12 rounded-full bg-gradient-to-br from-pink-400 to-rose-500 flex items-center justify-center text-white text-lg font-medium">
+                    SY
+                  </div>
 
-      <p className="text-sm font-medium mb-2">
-        Match score: {match.score}
-      </p>
+                  <div>
+                    <p className="font-medium text-gray-900">
+                      SameYaar #{match.userB}
+                    </p>
+                    <p className="text-sm text-gray-500">
+                      {match.score} shared dislikes
+                    </p>
+                  </div>
+                </div>
 
-      <ul className="text-sm text-gray-700 list-disc ml-5">
-        {match.reasons.map((reason, index) => (
-          <li key={index}>
-            You both hate {reason}
-          </li>
+                {/* Match badge */}
+                <div className="text-sm font-medium text-rose-600 bg-rose-50 px-3 py-1 rounded-full">
+                  🔥 Strong match
+                </div>
+              </div>
+
+              {/* Description */}
+              <p className="text-gray-600 leading-relaxed mb-6">
+                You both strongly dislike the same things.  
+                Sometimes, shared frustration is the best icebreaker.
+              </p>
+
+              {/* CTA */}
+              <button className="w-full bg-gray-900 text-white py-3 rounded-xl font-medium hover:bg-gray-800 transition">
+                Say Hi 👋
+              </button>
+            </div>
+          </div>
         ))}
-      </ul>
-    </div>
+      </div>
+    </main>
   );
 }
