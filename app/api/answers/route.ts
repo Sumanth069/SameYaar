@@ -3,21 +3,25 @@ import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
-export async function POST(req: Request) {
-  console.log("🔥 /api/answers HIT");
+const names = ["Rahul", "Ananya", "Sneha", "Karthik", "Aman", "Priya"];
+const courses = ["Engineering", "BCA", "BSc", "MBA"];
 
+export async function POST(req: Request) {
   try {
     const body = await req.json();
     const { answers } = body;
 
-    // ✅ Create a temp user (until login exists)
+    // ✅ Create a temp user WITH required fields
     const user = await prisma.user.create({
-      data: {},
+      data: {
+        name: names[Math.floor(Math.random() * names.length)],
+        age: 18 + Math.floor(Math.random() * 6),
+        course: courses[Math.floor(Math.random() * courses.length)],
+      },
     });
 
-    console.log("👤 tempUserId:", user.id);
-
-    const result = await prisma.answer.createMany({
+    // ✅ Save answers for that user
+    await prisma.answer.createMany({
       data: answers.map((a: any) => ({
         promptId: Number(a.promptId),
         response: a.response,
@@ -25,11 +29,9 @@ export async function POST(req: Request) {
       })),
     });
 
-    console.log("✅ Insert result:", result);
-
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("💥 API ERROR:", error);
+    console.error("API ERROR:", error);
     return NextResponse.json(
       { error: "Server error" },
       { status: 500 }

@@ -9,11 +9,15 @@ datasource db {
 
 model User {
   id        Int      @id @default(autoincrement())
-  email     String?  @unique
+  name      String
+  age       Int
+  course    String
   createdAt DateTime @default(now())
 
   answers   Answer[]
 }
+
+
 
 model Prompt {
   id      Int      @id
