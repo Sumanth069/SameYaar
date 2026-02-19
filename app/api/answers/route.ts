@@ -29,7 +29,10 @@ export async function POST(req: Request) {
       })),
     });
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({
+  success: true,
+  userId: user.id,
+});
   } catch (error) {
     console.error("API ERROR:", error);
     return NextResponse.json(

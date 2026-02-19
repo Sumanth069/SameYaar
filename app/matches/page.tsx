@@ -12,15 +12,18 @@ export default function MatchesPage() {
   const [matches, setMatches] = useState<Match[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    fetch("/api/matches")
-      .then((res) => res.json())
-      .then((data) => {
-        setMatches(data);
-        setLoading(false);
-      })
-      .catch(() => setLoading(false));
-  }, []);
+ useEffect(() => {
+  const userId = localStorage.getItem("sameyaar_user_id");
+  if (!userId) return;
+
+  fetch(`/api/matches?userId=${userId}`)
+    .then((res) => res.json())
+    .then((data) => {
+      setMatches(data);
+      setLoading(false);
+    });
+}, []);
+
 
   if (loading) {
     return (

@@ -3,65 +3,51 @@ import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
-export async function GET() {
-  try {
-    // Fetch all answers grouped by promptId
-    const answers = await prisma.answer.findMany({
-      where: {
-        response: "hate",
-      },
-      select: {
-        promptId: true,
-        userId: true,
-      },
-    });
+export async function GET(req: Request) {
+  const { searchParams } = new URL(req.url);
+  const userId = Number(searchParams.get("userId"));
 
-    // Group hates by prompt
-    const promptMap = new Map<number, number[]>();
+  if (!userId) return NextResponse.json([]);
 
-    answers.forEach((a) => {
-      if (!promptMap.has(a.promptId)) {
-        promptMap.set(a.promptId, []);
-      }
-      if (a.userId !== null) {
-        promptMap.get(a.promptId)!.push(a.userId);
-      }
-    });
+  const answers = await prisma.answer.findMany();
 
-    // Count shared hates between users
-    const matchScores = new Map<string, number>();
+  const map = new Map<string, number>();
 
-    promptMap.forEach((users) => {
-      for (let i = 0; i < users.length; i++) {
-        for (let j = i + 1; j < users.length; j++) {
-          const key =
-            users[i] < users[j]
-              ? `${users[i]}-${users[j]}`
-              : `${users[j]}-${users[i]}`;
+  for (let i = 0; i < answers.length; i++) {
+    for (let j = i + 1; j < answers.length; j++) {
+      if (
+        answers[i].promptId === answers[j].promptId &&
+        answers[i].userId !== answers[j].userId
+      ) {
+        let weight = 0;
 
-          matchScores.set(key, (matchScores.get(key) || 0) + 1);
+        if (
+          answers[i].response === "hate" &&
+          answers[j].response === "hate"
+        ) weight = 2;
+
+        else if (
+          answers[i].response === "meh" &&
+          answers[j].response === "meh"
+        ) weight = 1;
+
+        if (weight > 0) {
+          const a = answers[i].userId;
+          const b = answers[j].userId;
+
+          if (a === userId || b === userId) {
+            const key = [a, b].sort().join("-");
+            map.set(key, (map.get(key) || 0) + weight);
+          }
         }
       }
-    });
-
-    // Convert to response format
-    const matches = Array.from(matchScores.entries()).map(
-      ([key, score]) => {
-        const [userA, userB] = key.split("-");
-        return {
-          userA: Number(userA),
-          userB: Number(userB),
-          score,
-        };
-      }
-    );
-
-    return NextResponse.json(matches);
-  } catch (error) {
-    console.error(error);
-    return NextResponse.json(
-      { error: "Failed to compute matches" },
-      { status: 500 }
-    );
+    }
   }
+
+  const matches = Array.from(map.entries()).map(([key, score]) => {
+    const [userA, userB] = key.split("-").map(Number);
+    return { userA, userB, score };
+  });
+
+  return NextResponse.json(matches);
 }
