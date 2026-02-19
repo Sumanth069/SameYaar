@@ -1,23 +1,28 @@
+"use client";
+
+import { useRouter } from "next/navigation";
+
 export default function Home() {
+  const router = useRouter();
+
   return (
-    <main className="min-h-screen flex items-center justify-center bg-gray-100">
-      <div className="text-center px-4">
-        <h1 className="text-3xl md:text-5xl font-bold mb-4">
-          Not the only one who hates that, right?
+    <main className="min-h-screen flex flex-col items-center justify-center px-6 text-center">
+      <div className="card max-w-md w-full">
+        <h1 className="text-4xl font-bold mb-4">
+          SameYaar 💜
         </h1>
 
-        <p className="text-gray-600 mb-6">
-          Turns out someone else feels the same.
-          <br />
-          Find your SameYaar.
+        <p className="text-gray-600 mb-8">
+          Match with people who hate the same things as you.
+          Because bonding over slow internet is real.
         </p>
 
-        <a href="/prompts">
-  <button className="bg-black text-white px-6 py-3 rounded-lg text-lg">
-    Start Now
-  </button>
-</a>
-
+        <button
+          onClick={() => router.push("/prompts")}
+          className="btn-primary w-full"
+        >
+          Find My Yaars 🚀
+        </button>
       </div>
     </main>
   );

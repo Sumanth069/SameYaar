@@ -1,53 +1,84 @@
 import { NextResponse } from "next/server";
-import { PrismaClient } from "@prisma/client";
+import { prisma } from "@/lib/prisma";
 
-const prisma = new PrismaClient();
+export async function GET() {
+  try {
+    // 1️⃣ Get latest user (current session simulation)
+    const currentUser = await prisma.user.findFirst({
+      orderBy: { id: "desc" },
+    });
 
-export async function GET(req: Request) {
-  const { searchParams } = new URL(req.url);
-  const userId = Number(searchParams.get("userId"));
+    if (!currentUser) {
+      return NextResponse.json([]);
+    }
 
-  if (!userId) return NextResponse.json([]);
+    // 2️⃣ Get current user's answers
+    const myAnswers = await prisma.answer.findMany({
+      where: { userId: currentUser.id },
+    });
 
-  const answers = await prisma.answer.findMany();
+    if (myAnswers.length === 0) {
+      return NextResponse.json([]);
+    }
 
-  const map = new Map<string, number>();
+    // Map: promptId -> response
+    const myAnswerMap = new Map<number, string>();
+    myAnswers.forEach((a) => {
+      myAnswerMap.set(a.promptId, a.response);
+    });
 
-  for (let i = 0; i < answers.length; i++) {
-    for (let j = i + 1; j < answers.length; j++) {
-      if (
-        answers[i].promptId === answers[j].promptId &&
-        answers[i].userId !== answers[j].userId
-      ) {
-        let weight = 0;
+    // 3️⃣ Get all other users' answers
+    const otherAnswers = await prisma.answer.findMany({
+      where: {
+        userId: { not: currentUser.id },
+      },
+      include: {
+        user: true,
+      },
+    });
 
-        if (
-          answers[i].response === "hate" &&
-          answers[j].response === "hate"
-        ) weight = 2;
+    // 4️⃣ Group answers by userId
+    const grouped: Record<number, typeof otherAnswers> = {};
 
-        else if (
-          answers[i].response === "meh" &&
-          answers[j].response === "meh"
-        ) weight = 1;
+    for (const ans of otherAnswers) {
+      if (!grouped[ans.userId]) {
+        grouped[ans.userId] = [];
+      }
+      grouped[ans.userId].push(ans);
+    }
 
-        if (weight > 0) {
-          const a = answers[i].userId;
-          const b = answers[j].userId;
+    // 5️⃣ Calculate matches
+    const matches = Object.entries(grouped)
+      .map(([userId, answers]) => {
+        let score = 0;
 
-          if (a === userId || b === userId) {
-            const key = [a, b].sort().join("-");
-            map.set(key, (map.get(key) || 0) + weight);
+        for (const ans of answers) {
+          const myResponse = myAnswerMap.get(ans.promptId);
+
+          // 🔥 Core matching logic
+          if (myResponse === "hate" && ans.response === "hate") {
+            score++;
           }
         }
-      }
-    }
+
+        if (score === 0) return null;
+
+        const user = answers[0].user;
+
+        return {
+          id: user.id,
+          name: user.name,
+          age: user.age,
+          course: user.course,
+          score,
+        };
+      })
+      .filter(Boolean)
+      .sort((a: any, b: any) => b.score - a.score);
+
+    return NextResponse.json(matches);
+  } catch (error) {
+    console.error("MATCH ERROR:", error);
+    return NextResponse.json([], { status: 500 });
   }
-
-  const matches = Array.from(map.entries()).map(([key, score]) => {
-    const [userA, userB] = key.split("-").map(Number);
-    return { userA, userB, score };
-  });
-
-  return NextResponse.json(matches);
 }
