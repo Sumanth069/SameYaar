@@ -15,12 +15,14 @@ model User {
   createdAt DateTime @default(now())
 
   answers   Answer[]
+
+  // 👇 Like relations
+  likesSent Like[] @relation("SentLikes")
+  likesGot  Like[] @relation("ReceivedLikes")
 }
 
-
-
 model Prompt {
-  id      Int      @id
+  id      Int    @id
   text    String
 
   answers Answer[]
@@ -35,4 +37,16 @@ model Answer {
 
   prompt Prompt @relation(fields: [promptId], references: [id])
   user   User?  @relation(fields: [userId], references: [id])
+}
+
+model Like {
+  id          Int      @id @default(autoincrement())
+  fromUserId  Int
+  toUserId    Int
+  createdAt   DateTime @default(now())
+
+  fromUser User @relation("SentLikes", fields: [fromUserId], references: [id])
+  toUser   User @relation("ReceivedLikes", fields: [toUserId], references: [id])
+
+  @@unique([fromUserId, toUserId])
 }

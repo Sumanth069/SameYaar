@@ -24,7 +24,10 @@ export default function MatchesPage() {
   const [loading, setLoading] = useState(true);
   const [visible, setVisible] = useState(true);
 
-  // ✅ direction ref with neutral state
+  // ✅ Day 12C: frontend duplicate-like protection
+  const likedUserIds = useRef<Set<number>>(new Set());
+
+  // Swipe direction ref
   const swipeDirection = useRef<Direction>("none");
 
   // Motion values
@@ -38,7 +41,7 @@ export default function MatchesPage() {
         const data = await res.json();
         setMatches(data);
       } catch (e) {
-        console.error(e);
+        console.error("Failed to fetch matches", e);
       } finally {
         setLoading(false);
       }
@@ -53,15 +56,55 @@ export default function MatchesPage() {
     setVisible(false);
   };
 
-  const handleLike = () => {
+  // ❤️ LIKE
+  const handleLike = async () => {
     if (!current) return;
-    swipeDirection.current = "right"; // ✅ set explicitly
-    triggerExit();
+
+    // 🚫 Prevent frontend duplicate
+    if (likedUserIds.current.has(current.id)) {
+      return;
+    }
+
+    likedUserIds.current.add(current.id);
+
+    swipeDirection.current = "right";
+    setVisible(false);
+
+    try {
+      const res = await fetch("/api/like", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          toUserId: current.id,
+        }),
+      });
+
+      const data = await res.json();
+
+      // ✅ 409 = Already liked → NOT an error
+      if (res.status === 409) {
+        console.log("Like ignored: already liked");
+        return;
+      }
+
+      if (!res.ok) {
+        console.error("Like failed:", data.error);
+        return;
+      }
+
+      if (data.matched) {
+        console.log("🎉 MATCH FOUND");
+        // Day 13: open match modal here
+      }
+    } catch (err) {
+      console.error("Like request failed", err);
+    }
   };
 
+  // ⬅ SKIP
   const handleSkip = () => {
     if (!current) return;
-    swipeDirection.current = "left"; // ✅ set explicitly
+    swipeDirection.current = "left";
     triggerExit();
   };
 
@@ -77,12 +120,9 @@ export default function MatchesPage() {
     <main className="min-h-screen flex items-center justify-center bg-gradient-to-b from-pink-50 to-white px-4 overflow-hidden">
       <AnimatePresence
         onExitComplete={() => {
-          // ✅ AFTER animation is fully done
           setIndex((prev) => prev + 1);
           setVisible(true);
           x.set(0);
-
-          // 🔥 CRITICAL RESET
           swipeDirection.current = "none";
         }}
       >
