@@ -7,6 +7,7 @@ import {
   useMotionValue,
   useTransform,
 } from "framer-motion";
+import MatchModal from "@/components/MatchModal";
 
 type Match = {
   id: number;
@@ -23,6 +24,9 @@ export default function MatchesPage() {
   const [index, setIndex] = useState(0);
   const [loading, setLoading] = useState(true);
   const [visible, setVisible] = useState(true);
+
+  // 🎉 Day 13: matched user state
+  const [matchedUser, setMatchedUser] = useState<Match | null>(null);
 
   // ✅ Day 12C: frontend duplicate-like protection
   const likedUserIds = useRef<Set<number>>(new Set());
@@ -81,9 +85,8 @@ export default function MatchesPage() {
 
       const data = await res.json();
 
-      // ✅ 409 = Already liked → NOT an error
+      // ✅ 409 = Already liked → normal case
       if (res.status === 409) {
-        console.log("Like ignored: already liked");
         return;
       }
 
@@ -92,9 +95,9 @@ export default function MatchesPage() {
         return;
       }
 
+      // 🎉 Day 13: open match modal
       if (data.matched) {
-        console.log("🎉 MATCH FOUND");
-        // Day 13: open match modal here
+        setMatchedUser(current);
       }
     } catch (err) {
       console.error("Like request failed", err);
@@ -202,6 +205,16 @@ export default function MatchesPage() {
 
       {!current && (
         <p className="text-gray-500 text-lg">No more matches 👀</p>
+      )}
+
+      {/* 🎉 Day 13 Match Modal */}
+      {matchedUser && (
+        <MatchModal
+          name={matchedUser.name}
+          age={matchedUser.age}
+          course={matchedUser.course}
+          onClose={() => setMatchedUser(null)}
+        />
       )}
     </main>
   );
