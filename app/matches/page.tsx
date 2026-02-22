@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
+import Link from "next/link";
 import {
   motion,
   AnimatePresence,
@@ -25,7 +26,7 @@ export default function MatchesPage() {
   const [loading, setLoading] = useState(true);
   const [visible, setVisible] = useState(true);
 
-  // 🎉 Day 13: matched user state
+  // 🎉 Day 13: matched user modal
   const [matchedUser, setMatchedUser] = useState<Match | null>(null);
 
   // ✅ Day 12C: frontend duplicate-like protection
@@ -64,7 +65,7 @@ export default function MatchesPage() {
   const handleLike = async () => {
     if (!current) return;
 
-    // 🚫 Prevent frontend duplicate
+    // 🚫 Prevent frontend duplicate likes
     if (likedUserIds.current.has(current.id)) {
       return;
     }
@@ -85,7 +86,7 @@ export default function MatchesPage() {
 
       const data = await res.json();
 
-      // ✅ 409 = Already liked → normal case
+      // 409 = already liked (normal case)
       if (res.status === 409) {
         return;
       }
@@ -95,7 +96,7 @@ export default function MatchesPage() {
         return;
       }
 
-      // 🎉 Day 13: open match modal
+      // 🎉 Mutual match
       if (data.matched) {
         setMatchedUser(current);
       }
@@ -121,6 +122,16 @@ export default function MatchesPage() {
 
   return (
     <main className="min-h-screen flex items-center justify-center bg-gradient-to-b from-pink-50 to-white px-4 overflow-hidden">
+      
+      {/* ❤️ Persistent Connections Button (UX FIX) */}
+      <Link
+        href="/connections"
+        className="fixed top-6 right-6 z-50 w-12 h-12 rounded-full bg-gradient-to-r from-pink-500 to-rose-500 flex items-center justify-center text-white shadow-lg hover:scale-105 transition"
+        title="View your connections"
+      >
+        ❤️
+      </Link>
+
       <AnimatePresence
         onExitComplete={() => {
           setIndex((prev) => prev + 1);
@@ -207,7 +218,7 @@ export default function MatchesPage() {
         <p className="text-gray-500 text-lg">No more matches 👀</p>
       )}
 
-      {/* 🎉 Day 13 Match Modal */}
+      {/* 🎉 Match Modal */}
       {matchedUser && (
         <MatchModal
           name={matchedUser.name}
