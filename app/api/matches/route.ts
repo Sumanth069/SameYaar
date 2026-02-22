@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
-export async function GET() {
+export async function GET(req: Request) {
   try {
-    const currentUserId = 1; // TEMP DEV USER
+    // 🟣 Day 15: current user from header
+    const currentUserId = Number(req.headers.get("x-user-id")) || 1;
 
-    // Find users current user liked
     const likesSent = await prisma.like.findMany({
       where: { fromUserId: currentUserId },
       select: { toUserId: true },
@@ -17,7 +17,6 @@ export async function GET() {
       return NextResponse.json([]);
     }
 
-    // Find mutual likes
     const mutualLikes = await prisma.like.findMany({
       where: {
         fromUserId: { in: likedUserIds },
@@ -32,7 +31,6 @@ export async function GET() {
       return NextResponse.json([]);
     }
 
-    // Fetch matched users
     const matchedUsers = await prisma.user.findMany({
       where: { id: { in: mutualUserIds } },
       select: {

@@ -10,131 +10,169 @@ import {
 } from "framer-motion";
 import MatchModal from "@/components/MatchModal";
 
-type Match = {
+type SwipeUser = {
   id: number;
   name: string;
   age: number;
   course: string;
-  score: number;
+};
+
+type DevUser = {
+  id: number;
+  name: string;
 };
 
 type Direction = "left" | "right" | "none";
 
 export default function MatchesPage() {
-  const [matches, setMatches] = useState<Match[]>([]);
+  const [users, setUsers] = useState<SwipeUser[]>([]);
   const [index, setIndex] = useState(0);
   const [loading, setLoading] = useState(true);
   const [visible, setVisible] = useState(true);
 
-  // 🎉 Day 13: matched user modal
-  const [matchedUser, setMatchedUser] = useState<Match | null>(null);
+  const [matchedUser, setMatchedUser] = useState<SwipeUser | null>(null);
 
-  // ✅ Day 12C: frontend duplicate-like protection
+  // 🟣 Day 15: DEV user switching
+  const [currentUserId, setCurrentUserId] = useState<number | null>(null);
+  const [allUsers, setAllUsers] = useState<DevUser[]>([]);
+
+  // Safety + animation
   const likedUserIds = useRef<Set<number>>(new Set());
-
-  // Swipe direction ref
   const swipeDirection = useRef<Direction>("none");
 
-  // Motion values
   const x = useMotionValue(0);
   const rotate = useTransform(x, [-200, 200], [-15, 15]);
 
+  // 🔹 Load DEV users
   useEffect(() => {
-    const fetchMatches = async () => {
+    const init = async () => {
+      const saved = localStorage.getItem("currentUserId");
+
+      const res = await fetch("/api/users");
+      const data = await res.json();
+      setAllUsers(data);
+
+      if (saved) {
+        setCurrentUserId(Number(saved));
+      } else if (data.length > 0) {
+        setCurrentUserId(data[0].id);
+        localStorage.setItem("currentUserId", String(data[0].id));
+      }
+    };
+
+    init();
+  }, []);
+
+  // 🔹 Fetch swipe candidates (IMPORTANT: /api/swipe)
+  useEffect(() => {
+    if (!currentUserId) return;
+
+    const fetchSwipeUsers = async () => {
+      setLoading(true);
       try {
-        const res = await fetch("/api/matches");
+        const res = await fetch("/api/swipe", {
+          headers: {
+            "x-user-id": String(currentUserId),
+          },
+        });
         const data = await res.json();
-        setMatches(data);
-      } catch (e) {
-        console.error("Failed to fetch matches", e);
+        setUsers(data);
+        setIndex(0);
+      } catch (err) {
+        console.error("Failed to load swipe users", err);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchMatches();
-  }, []);
+    fetchSwipeUsers();
+  }, [currentUserId]);
 
-  const current = matches[index];
+  const current = users[index];
 
-  const triggerExit = () => {
-    setVisible(false);
+  const switchUser = (id: number) => {
+    localStorage.setItem("currentUserId", String(id));
+    likedUserIds.current.clear();
+    setCurrentUserId(id);
+    window.location.reload();
   };
+
+  const triggerExit = () => setVisible(false);
 
   // ❤️ LIKE
   const handleLike = async () => {
-    if (!current) return;
+    if (!current || !currentUserId) return;
 
-    // 🚫 Prevent frontend duplicate likes
-    if (likedUserIds.current.has(current.id)) {
-      return;
-    }
-
+    if (likedUserIds.current.has(current.id)) return;
     likedUserIds.current.add(current.id);
 
     swipeDirection.current = "right";
     setVisible(false);
 
-    try {
-      const res = await fetch("/api/like", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          toUserId: current.id,
-        }),
-      });
+    const res = await fetch("/api/like", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-user-id": String(currentUserId),
+      },
+      body: JSON.stringify({ toUserId: current.id }),
+    });
 
-      const data = await res.json();
+    const data = await res.json();
 
-      // 409 = already liked (normal case)
-      if (res.status === 409) {
-        return;
-      }
-
-      if (!res.ok) {
-        console.error("Like failed:", data.error);
-        return;
-      }
-
-      // 🎉 Mutual match
-      if (data.matched) {
-        setMatchedUser(current);
-      }
-    } catch (err) {
-      console.error("Like request failed", err);
+    if (data.matched) {
+      setMatchedUser(current);
     }
   };
 
   // ⬅ SKIP
   const handleSkip = () => {
-    if (!current) return;
     swipeDirection.current = "left";
     triggerExit();
   };
 
-  if (loading) {
+  if (loading || !currentUserId) {
     return (
       <main className="min-h-screen flex items-center justify-center">
-        <p className="text-gray-500">Finding your SameYaars… 💖</p>
+        <p className="text-gray-500">Loading…</p>
       </main>
     );
   }
 
   return (
     <main className="min-h-screen flex items-center justify-center bg-gradient-to-b from-pink-50 to-white px-4 overflow-hidden">
-      
-      {/* ❤️ Persistent Connections Button (UX FIX) */}
+
+      {/* 🟣 DEV USER SWITCHER */}
+      <div className="fixed top-6 left-6 z-50 bg-white shadow rounded-xl px-4 py-2">
+        <p className="text-xs text-gray-500 mb-1">DEV USER</p>
+        <div className="flex gap-2 flex-wrap">
+          {allUsers.map(user => (
+            <button
+              key={user.id}
+              onClick={() => switchUser(user.id)}
+              className={`px-3 py-1 rounded-full text-sm ${
+                user.id === currentUserId
+                  ? "bg-pink-500 text-white"
+                  : "bg-gray-200"
+              }`}
+            >
+              {user.name} ({user.id})
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* ❤️ Connections */}
       <Link
         href="/connections"
         className="fixed top-6 right-6 z-50 w-12 h-12 rounded-full bg-gradient-to-r from-pink-500 to-rose-500 flex items-center justify-center text-white shadow-lg hover:scale-105 transition"
-        title="View your connections"
       >
         ❤️
       </Link>
 
       <AnimatePresence
         onExitComplete={() => {
-          setIndex((prev) => prev + 1);
+          setIndex(prev => prev + 1);
           setVisible(true);
           x.set(0);
           swipeDirection.current = "none";
@@ -162,63 +200,43 @@ export default function MatchesPage() {
               x:
                 swipeDirection.current === "right"
                   ? 500
-                  : swipeDirection.current === "left"
-                  ? -500
-                  : 0,
+                  : -500,
               opacity: 0,
             }}
             transition={{ type: "spring", stiffness: 300, damping: 25 }}
           >
-            {/* Avatar */}
             <div className="w-24 h-24 mx-auto rounded-full bg-gradient-to-r from-pink-500 to-rose-500 flex items-center justify-center text-white text-2xl font-bold mb-4">
-              {current.name?.[0]}
+              {current.name[0]}
             </div>
 
             <h2 className="text-2xl font-bold">{current.name}</h2>
-            <p className="text-gray-500 mb-2">
+            <p className="text-gray-500 mb-6">
               {current.age} • {current.course}
-            </p>
-
-            <div className="text-pink-500 text-5xl font-bold mb-4">
-              {current.score}
-            </div>
-
-            <p className="text-gray-600 mb-6">
-              Shared hates compatibility score
             </p>
 
             <div className="flex justify-between">
               <button
                 onClick={handleSkip}
-                className="px-6 py-3 rounded-full border border-gray-300 hover:bg-gray-100 transition"
+                className="px-6 py-3 rounded-full border border-gray-300"
               >
                 ⬅ Skip
               </button>
 
               <button
                 onClick={handleLike}
-                className="px-8 py-3 rounded-full bg-gradient-to-r from-pink-500 to-rose-500 text-white shadow-lg hover:scale-105 transition"
+                className="px-8 py-3 rounded-full bg-gradient-to-r from-pink-500 to-rose-500 text-white shadow-lg"
               >
                 ❤️ Like
               </button>
             </div>
-
-            <p className="text-sm text-gray-400 mt-6">
-              {index + 1} / {matches.length}
-            </p>
-
-            <p className="text-xs text-gray-400 mt-2">
-              Drag right to like • left to skip
-            </p>
           </motion.div>
         ) : null}
       </AnimatePresence>
 
       {!current && (
-        <p className="text-gray-500 text-lg">No more matches 👀</p>
+        <p className="text-gray-500 text-lg">No more users 👀</p>
       )}
 
-      {/* 🎉 Match Modal */}
       {matchedUser && (
         <MatchModal
           name={matchedUser.name}
