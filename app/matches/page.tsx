@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import {
   motion,
   AnimatePresence,
@@ -16,16 +16,21 @@ type Match = {
   score: number;
 };
 
+type Direction = "left" | "right" | "none";
+
 export default function MatchesPage() {
   const [matches, setMatches] = useState<Match[]>([]);
   const [index, setIndex] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [visible, setVisible] = useState(true);
 
-  // Motion values for swipe
+  // ✅ direction ref with neutral state
+  const swipeDirection = useRef<Direction>("none");
+
+  // Motion values
   const x = useMotionValue(0);
   const rotate = useTransform(x, [-200, 200], [-15, 15]);
 
-  // Fetch matches
   useEffect(() => {
     const fetchMatches = async () => {
       try {
@@ -33,7 +38,7 @@ export default function MatchesPage() {
         const data = await res.json();
         setMatches(data);
       } catch (e) {
-        console.error("Failed to fetch matches", e);
+        console.error(e);
       } finally {
         setLoading(false);
       }
@@ -44,21 +49,22 @@ export default function MatchesPage() {
 
   const current = matches[index];
 
-  const nextCard = () => {
-    setIndex((prev) => (prev < matches.length ? prev + 1 : prev));
+  const triggerExit = () => {
+    setVisible(false);
   };
 
   const handleLike = () => {
-    console.log("❤️ Liked:", current?.id);
-    nextCard();
+    if (!current) return;
+    swipeDirection.current = "right"; // ✅ set explicitly
+    triggerExit();
   };
 
   const handleSkip = () => {
-    console.log("⏭️ Skipped:", current?.id);
-    nextCard();
+    if (!current) return;
+    swipeDirection.current = "left"; // ✅ set explicitly
+    triggerExit();
   };
 
-  // Loading UI
   if (loading) {
     return (
       <main className="min-h-screen flex items-center justify-center">
@@ -69,25 +75,42 @@ export default function MatchesPage() {
 
   return (
     <main className="min-h-screen flex items-center justify-center bg-gradient-to-b from-pink-50 to-white px-4 overflow-hidden">
-      <AnimatePresence>
-        {current ? (
+      <AnimatePresence
+        onExitComplete={() => {
+          // ✅ AFTER animation is fully done
+          setIndex((prev) => prev + 1);
+          setVisible(true);
+          x.set(0);
+
+          // 🔥 CRITICAL RESET
+          swipeDirection.current = "none";
+        }}
+      >
+        {current && visible ? (
           <motion.div
             key={current.id}
             style={{ x, rotate }}
             className="w-[420px] bg-white rounded-3xl shadow-2xl p-8 text-center absolute"
             drag="x"
             dragConstraints={{ left: 0, right: 0 }}
-            onDragEnd={(event, info) => {
+            onDragEnd={(e, info) => {
               if (info.offset.x > 120) {
-                handleLike();
+                swipeDirection.current = "right";
+                triggerExit();
               } else if (info.offset.x < -120) {
-                handleSkip();
+                swipeDirection.current = "left";
+                triggerExit();
               }
             }}
             initial={{ scale: 0.95, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{
-              x: Math.random() > 0.5 ? 500 : -500,
+              x:
+                swipeDirection.current === "right"
+                  ? 500
+                  : swipeDirection.current === "left"
+                  ? -500
+                  : 0,
               opacity: 0,
             }}
             transition={{ type: "spring", stiffness: 300, damping: 25 }}
@@ -97,13 +120,11 @@ export default function MatchesPage() {
               {current.name?.[0]}
             </div>
 
-            {/* Info */}
             <h2 className="text-2xl font-bold">{current.name}</h2>
             <p className="text-gray-500 mb-2">
               {current.age} • {current.course}
             </p>
 
-            {/* Score */}
             <div className="text-pink-500 text-5xl font-bold mb-4">
               {current.score}
             </div>
@@ -112,7 +133,6 @@ export default function MatchesPage() {
               Shared hates compatibility score
             </p>
 
-            {/* Buttons */}
             <div className="flex justify-between">
               <button
                 onClick={handleSkip}
@@ -129,7 +149,6 @@ export default function MatchesPage() {
               </button>
             </div>
 
-            {/* Footer */}
             <p className="text-sm text-gray-400 mt-6">
               {index + 1} / {matches.length}
             </p>
@@ -138,16 +157,12 @@ export default function MatchesPage() {
               Drag right to like • left to skip
             </p>
           </motion.div>
-        ) : (
-          <motion.p
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="text-gray-500 text-lg"
-          >
-            No more matches 👀
-          </motion.p>
-        )}
+        ) : null}
       </AnimatePresence>
+
+      {!current && (
+        <p className="text-gray-500 text-lg">No more matches 👀</p>
+      )}
     </main>
   );
 }
